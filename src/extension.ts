@@ -1,24 +1,94 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
-import fs from 'fs';
+import * as fs from 'fs';
+import * as path from 'path';
+import { MainPanel } from './panel/main-panel';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-	// const CancellationTokenSource = new vscode.CancellationTokenSource();
+	console.log('Extension is now active!');
 
-	vscode.commands.registerCommand('jwork-extension.generate.controller', async () => {
-		const filename = await vscode.window.showInputBox({title: '파일 이름', placeHolder: '파일 이름을 입력하세요', prompt: '파일 이름을 입력하세요'});
-		if (!filename) {
-			return;
-		}
-		const path = await vscode.window.showInputBox({title: '파일 경로', placeHolder: '파일 경로를 입력하세요', prompt: '파일 경로를 입력하세요', value: 'src/main/java/com/example/controller'});
-		if (!path) {
-			return;
-		}
-		!fs.existsSync(path) && fs.statSync(path).isFile()
-	});
+	// Register the command to open chat panel
+	context.subscriptions.push(
+		vscode.commands.registerCommand('jwork-extension.openChat', () => {
+			MainPanel.show(context);
+		})
+	);
+
+	// Register view provider
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider('jwork-chat-panel', {
+			resolveWebviewView(webviewView: vscode.WebviewView) {
+				// When the icon is clicked, show the panel in the editor area
+				MainPanel.show(context);
+			}
+		})
+	);
+
+	// Register existing commands
+	context.subscriptions.push(vscode.commands.registerCommand('jwork-extension.generate.controller', generateController));
+}
+
+async function generateController(filePath: string, filename: string) {
+	try {
+		const rootPath = getWorkspaceRoot();
+		if (!rootPath) return;
+
+		const resultPath = await promptUserForPathAndName();
+		if (!resultPath) return;
+		const { filePath, filename } = resultPath;
+
+		const fullPath = path.join(rootPath, filePath, `${filename}`);
+		if (!validateAndPreparePath(fullPath)) return;
+
+		const content = generateJavaTemplate(filePath, filename);
+		fs.writeFileSync(fullPath, content);
+
+		const doc = await vscode.workspace.openTextDocument(fullPath);
+		await vscode.window.showTextDocument(doc);
+
+		vscode.window.showInformationMessage(`파일이 생성되었습니다: ${fullPath}`);
+	} catch (error) {
+		vscode.window.showErrorMessage(`오류: ${error}`);
+	}
+}
+
+function getWorkspaceRoot(): string | undefined {
+	const folders = vscode.workspace.workspaceFolders;
+	if (!folders) {
+		vscode.window.showErrorMessage('프로젝트(폴더)를 먼저 열어주세요.');
+		return;
+	}
+	return folders[0].uri.fsPath;
+}
+
+async function promptUserForPathAndName(): Promise<{ filePath: string, filename: string } | undefined> {
+	const filePath = await vscode.window.showInputBox({ prompt: '생성할 경로 (예: src/controllers)' });
+	if (filePath === undefined) {
+		return;
+	}
+
+	const filename = await vscode.window.showInputBox({ prompt: '파일 이름' });
+	if (filename === undefined) {
+		return;
+	}
+
+	return { filePath, filename };
+}
+
+function validateAndPreparePath(fullPath: string): boolean {
+	if (fs.existsSync(fullPath)) {
+		vscode.window.showErrorMessage('이미 파일이 존재합니다.');
+		return false;
+	}
+	const dir = path.dirname(fullPath);
+	if (!fs.existsSync(dir)) {
+		fs.mkdirSync(dir, { recursive: true });
+	}
+	return true;
+}
+
+function generateJavaTemplate(filePath: string, filename: string): string {
+	const pkg = filePath.replace(/[\\/]/g, '.');
+	return `package ${pkg};\n\npublic class ${filename} {\n\n}`;
 }
 
 // This method is called when your extension is deactivated
