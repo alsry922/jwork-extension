@@ -13,36 +13,42 @@
   "contributes": {
     "commands": [
       {
-        "command": "jwork-extension.generate.controller",
-        "title": "Generate Controller"
-      },
-      {
-        "command": "jwork-extension.openChat",
-        "title": "Open Chat Panel"
+        "command": "jwork-extension.newChat",
+        "title": "New Chat",
+        "icon": "$(add)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "jwork-chat-panel",
-          "title": "JWork Chat",
+          "id": "jwork-extension",
+          "title": "Jwork Extension",
           "icon": "$(comment-discussion)"
         }
       ]
     },
     "views": {
-      "jwork-chat-panel": [
+      "jwork-extension": [
         {
-          "id": "jwork-chat-panel",
-          "name": "Chat Panel",
-          "type": "webview"
+          "type": "tree",
+          "id": "jwork-extension-sidebar",
+          "name": "Jwork Extension"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "jwork-extension.newChat",
+          "when": "view == jwork-extension-sidebar",
+          "group": "navigation"
         }
       ]
     }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
+    "compile": "tsc -watch -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
